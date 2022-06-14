@@ -48,6 +48,7 @@ def checkBookings(list_booking,
              Q(time_from__gte=booking_datetime['end_time'], time_to__lte=booking_datetime['end_time'])))
     return data_vali
 
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def api_add_event(request):
@@ -205,7 +206,7 @@ def api_add_event(request):
                     end_time = datetime.combine(from_date + timedelta(days=i), end_time.time())
                     list_booking.append({'start_time': start_time,
                                          'end_time': end_time})
-        if len(list_booking)==0:
+        if len(list_booking) == 0:
             return Response({
                 'status': False,
                 "error": {
@@ -216,16 +217,26 @@ def api_add_event(request):
         room_input = Room.objects.get(name=data_input.data.get('room')).id
         data_vali = list(checkBookings(list_booking, room_input))
         if len(data_vali) == 0:
-            # add event
-            if data_input.data.get('group') is not None:
-                new_event = Event.objects.create(title=data_input.data.get('title'),
-                                                 group=Group.objects.get(name=data_input.data.get('group')),
-                                                 created_at=datetime.now(timezone.utc),
-                                                 created_by=CustomUser.objects.get(id=token_decode['user_id']))
+            now_day = datetime.now()
+            if now_day >= start_time:
+                return Response({
+                    'status': False,
+                    "error": {
+                        "code": status.HTTP_400_BAD_REQUEST,
+                        "message": f"from {start_time} is less than current time"
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
             else:
-                new_event = Event.objects.create(title=data_input.data.get('title'),
-                                                 created_at=datetime.now(timezone.utc),
-                                                 created_by=CustomUser.objects.get(id=token_decode['user_id']))
+                # add event
+                if data_input.data.get('group') is not None:
+                    new_event = Event.objects.create(title=data_input.data.get('title'),
+                                                     group=Group.objects.get(name=data_input.data.get('group')),
+                                                     created_at=datetime.now(timezone.utc),
+                                                     created_by=CustomUser.objects.get(id=token_decode['user_id']))
+                else:
+                    new_event = Event.objects.create(title=data_input.data.get('title'),
+                                                     created_at=datetime.now(timezone.utc),
+                                                     created_by=CustomUser.objects.get(id=token_decode['user_id']))
             # add booking
             for i in list_booking:
                 Booking.objects.create(event=Event.objects.get(id=new_event.id),
@@ -247,7 +258,3 @@ def api_add_event(request):
                                f" to {data_vali[0].time_to.date()} {data_vali[0].time_to.time()}!"
                 }
             }, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-
